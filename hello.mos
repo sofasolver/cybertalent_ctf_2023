@@ -1,0 +1,11 @@
+% PRI:14
+NEWLINE = 10
+; Print a string
+loop:
+    !*ptr ? NIP <- #HLT
+    PRN <- *ptr
+    INC <- ptr
+    ptr <- INC
+    NIP <- #loop
+string: "MOV to the cloud!", NEWLINE, 0
+ptr: string

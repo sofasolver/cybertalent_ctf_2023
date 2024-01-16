@@ -1,0 +1,703 @@
+% STD BPM:0
+main:
+    NIP <- #write_all_out_ports
+    NIP <- #read_all_inp_ports
+
+    NIP <- #create_id
+
+    NIP <- #print_id
+
+    NIP <- #write_all_id
+    NIP <- #read_all_id
+
+    NIP <- #print_inputs
+
+    NIP <- #write_src_me_pairs
+
+    NIP <- #read_src_dst_pairs
+
+    NIP <- #update_outputs
+
+    resend_cnt <- #0
+resend_update_loop:
+    resend_cnt <- INC <- resend_cnt
+    NIP <- #resend_pairs
+    NIP <- #read_src_dst_pairs
+    NIP <- #update_outputs
+
+    ALX <- resend_cnt
+    ALY <- #255
+    ULT ? NIP <- #resend_update_loop
+
+    NIP <- #print_outputs
+
+    NIP <- #HLT
+
+write_all_out_ports:
+    STT <- PIP
+
+    out_ptr <- #0
+write_all_out_ports_loop:
+    ALX <- out_ptr
+    ALY <- #15
+    UGT ? NIP <- STT
+
+    ;; We write our own output port number
+    ;; to the pipe. 
+    BPI <- out_ptr
+
+    RES <- out_ptr
+    NIP <- #send_char
+
+
+    out_ptr <- INC <- out_ptr
+    NIP <- #write_all_out_ports_loop
+
+
+read_all_inp_ports:
+    STT <- PIP
+    inp_ptr <- #0
+read_all_inp_ports_loop:
+    ALX <- inp_ptr
+    ALY <- #15
+    UGT ? NIP <- STT
+
+    BPI <- inp_ptr
+
+    ;; Assert BPS == 1 :)
+    ALX <- #inp_ports
+
+    ;; The read value, which is the output port
+    ;; from some machine
+    NIP <- #recv_char
+    out_ptr <- RES
+
+    ALY <- inp_ptr
+
+    *SUM <- out_ptr
+
+    inp_ptr <- INC <- inp_ptr
+    NIP <- #read_all_inp_ports_loop
+
+create_id:
+    ptr1 <- #str_id
+    ptr2 <- #inp_ports
+
+    ALX <- #hex_chars
+    ALY <- *ptr2
+    *ptr1 <- *SUM
+    ptr1 <- INC <- ptr1
+    ptr2 <- INC <- ptr2
+
+    ALY <- *ptr2
+    *ptr1 <- *SUM
+    ptr1 <- INC <- ptr1
+    ptr2 <- INC <- ptr2
+
+    ALY <- *ptr2
+    *ptr1 <- *SUM
+    ptr1 <- INC <- ptr1
+    ptr2 <- INC <- ptr2
+
+    ALY <- *ptr2
+    *ptr1 <- *SUM
+    ptr1 <- INC <- ptr1
+    ptr2 <- INC <- ptr2
+
+    NIP <- PIP
+
+print_id:
+    ;; "ID "
+    ptr1 <- #str_id_title
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+
+    ;; the actual ID
+    ptr1 <- #str_id
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+
+    ;; Newline
+    PRN <- #10
+    PRN <- #10
+    NIP <- PIP
+
+write_all_id:
+    STT <- PIP
+    out_ptr <- #0
+write_all_id_loop:
+    ALX <- out_ptr
+    ALY <- #15
+    UGT ? NIP <- STT
+
+    BPI <- out_ptr
+    ptr1 <- #str_id
+
+    RES <- *ptr1
+    NIP <- #send_char
+    ptr1 <- INC <- ptr1
+
+    RES <- *ptr1
+    NIP <- #send_char
+    ptr1 <- INC <- ptr1
+
+    RES <- *ptr1
+    NIP <- #send_char
+    ptr1 <- INC <- ptr1
+
+    RES <- *ptr1
+    NIP <- #send_char
+    ptr1 <- INC <- ptr1
+
+    out_ptr <- INC <- out_ptr
+    NIP <- #write_all_id_loop
+
+read_all_id:
+    STT <- PIP
+    inp_ptr <- #0
+    ptr1 <- #inp_ids
+read_all_id_loop:
+    ALX <- inp_ptr
+    ALY <- #15
+    UGT ? NIP <- STT
+
+    BPI <- inp_ptr
+
+    ;;DBG <- BPS
+
+    NIP <- #recv_char
+    *ptr1 <- RES
+
+    ptr1 <- INC <- ptr1
+    NIP <- #recv_char
+    *ptr1 <- RES
+    ptr1 <- INC <- ptr1
+    NIP <- #recv_char
+    *ptr1 <- RES
+    ptr1 <- INC <- ptr1
+    NIP <- #recv_char
+    *ptr1 <- RES
+    ptr1 <- INC <- ptr1
+
+    ;;DBG <- BPS
+
+    inp_ptr <- INC <- inp_ptr
+    NIP <- #read_all_id_loop
+
+print_inputs:
+    STT <- PIP
+    ptr1 <- #str_input_title
+
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+
+    inp_ptr <- #0
+    ptr1 <- #inp_ids
+print_inputs_loop:
+    ALX <- inp_ptr
+    ALY <- #15
+    UGT ? NIP <- #print_inputs_done
+
+    ;; Space
+    PRN <- #32
+
+    ;; Id string
+
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+
+    ;; Colon
+    PRN <- #58
+
+    ;; Port
+    ALX <- #inp_ports
+    ALY <- inp_ptr
+    ALY <- *SUM
+    ALX <- #hex_chars
+
+    PRN <- *SUM
+
+    inp_ptr <- INC <- inp_ptr
+    NIP <- #print_inputs_loop
+print_inputs_done:
+    PRN <- #10
+    PRN <- #10
+    NIP <- STT
+
+check_for_input:
+    STT <- PIP
+    inp_ptr <- #0
+check_for_input_loop:
+    ALX <- inp_ptr
+    ALY <- #15
+    UGT ? NIP <- STT
+
+    BPI <- inp_ptr
+    DBG <- BPS
+
+    inp_ptr <- INC <- inp_ptr
+    NIP <- #check_for_input_loop
+
+write_src_me_pairs:
+    STT <- PIP
+    out_ptr <- #0
+    ptr1 <- #inp_ids
+write_src_me_pairs_loop:
+    ALX <- out_ptr
+    ALY <- #15
+    UGT ? NIP <- STT
+
+    BPI <- out_ptr
+
+    ;; Src port
+    ALX <- #inp_ports
+    ALY <- out_ptr
+
+    RES <- *SUM
+    NIP <- #send_char
+
+    ;; Src id
+    RES <- *ptr1
+    NIP <- #send_char
+    ptr1 <- INC <- ptr1
+
+    RES <- *ptr1
+    NIP <- #send_char
+    ptr1 <- INC <- ptr1
+
+    RES <- *ptr1
+    NIP <- #send_char
+    ptr1 <- INC <- ptr1
+
+    RES <- *ptr1
+    NIP <- #send_char
+    ptr1 <- INC <- ptr1
+
+    ;; Dst port (myself)
+    RES <- out_ptr
+    NIP <- #send_char
+
+    ;; Dst id (myself)
+    ptr2 <- #str_id
+
+    RES <- *ptr2
+    NIP <- #send_char
+    ptr2 <- INC <- ptr2
+    RES <- *ptr2
+    NIP <- #send_char
+    ptr2 <- INC <- ptr2
+    RES <- *ptr2
+    NIP <- #send_char
+    ptr2 <- INC <- ptr2
+    RES <- *ptr2
+    NIP <- #send_char
+    ptr2 <- INC <- ptr2
+
+    out_ptr <- INC <- out_ptr
+    NIP <- #write_src_me_pairs_loop
+
+read_src_dst_pairs:
+    STT <- PIP
+    ptr1 <- #src_dst_buf
+    inp_ptr <- #0
+read_src_dst_pairs_loop:
+    ALX <- inp_ptr
+    ALY <- #15
+    UGT ? NIP <- STT
+
+    BPI <- inp_ptr
+
+    NIP <- #recv_char
+    *ptr1 <- RES
+    ptr1 <- INC <- ptr1
+
+    NIP <- #recv_char
+    *ptr1 <- RES
+    ptr1 <- INC <- ptr1
+
+    NIP <- #recv_char
+    *ptr1 <- RES
+    ptr1 <- INC <- ptr1
+
+    NIP <- #recv_char
+    *ptr1 <- RES
+    ptr1 <- INC <- ptr1
+
+    NIP <- #recv_char
+    *ptr1 <- RES
+    ptr1 <- INC <- ptr1
+
+    NIP <- #recv_char
+    *ptr1 <- RES
+    ptr1 <- INC <- ptr1
+
+    NIP <- #recv_char
+    *ptr1 <- RES
+    ptr1 <- INC <- ptr1
+
+    NIP <- #recv_char
+    *ptr1 <- RES
+    ptr1 <- INC <- ptr1
+
+    NIP <- #recv_char
+    *ptr1 <- RES
+    ptr1 <- INC <- ptr1
+
+    NIP <- #recv_char
+    *ptr1 <- RES
+    ptr1 <- INC <- ptr1
+
+    inp_ptr <- INC <- inp_ptr
+    NIP <- #read_src_dst_pairs_loop
+
+update_outputs:
+    STT <- PIP
+    ptr1 <- #src_dst_buf
+    inp_ptr <- #0
+update_outputs_loop:
+    ALX <- inp_ptr
+    ALY <- #15
+    UGT ? NIP <- STT
+
+    src_port <- *ptr1
+    ptr1 <- INC <- ptr1
+
+    ;; Check if src id is ourselves
+    id_eq <- #1
+    ptr2 <- #str_id
+
+    ALX <- *ptr1
+    ALY <- *ptr2
+
+    DIF ? id_eq <- #0
+    ptr1 <- INC <- ptr1
+    ptr2 <- INC <- ptr2
+    ALX <- *ptr1
+    ALY <- *ptr2
+
+    DIF ? id_eq <- #0
+    ptr1 <- INC <- ptr1
+    ptr2 <- INC <- ptr2
+    ALX <- *ptr1
+    ALY <- *ptr2
+
+    DIF ? id_eq <- #0
+    ptr1 <- INC <- ptr1
+    ptr2 <- INC <- ptr2
+    ALX <- *ptr1
+    ALY <- *ptr2
+
+    DIF ? id_eq <- #0
+    ptr1 <- INC <- ptr1
+    ptr2 <- INC <- ptr2
+
+    ALX <- #1
+    ALY <- id_eq
+
+    ;; Should be the opposite
+    id_neq <- DIF
+
+    dst_port <- *ptr1
+    ptr1 <- INC <- ptr1
+
+    ;; Copy dst id to our own 
+    ;; output list. Or dummy if it was no match
+    id_eq ? ALX <- #out_ids
+    id_neq ? ALX <- #dum_ids
+
+    MUX <- src_port
+    MUY <- #4
+    ALY <- UPL
+
+    ptr2 <- SUM
+
+    *ptr2 <- *ptr1
+    ptr1 <- INC <- ptr1
+    ptr2 <- INC <- ptr2
+    *ptr2 <- *ptr1
+    ptr1 <- INC <- ptr1
+    ptr2 <- INC <- ptr2
+    *ptr2 <- *ptr1
+    ptr1 <- INC <- ptr1
+    ptr2 <- INC <- ptr2
+    *ptr2 <- *ptr1
+    ptr1 <- INC <- ptr1
+    ptr2 <- INC <- ptr2
+
+    ;; Copy dst_port
+    id_eq ? ALX <- #out_ports
+    id_neq ? ALX <- #dum_ports
+
+    ALY <- src_port
+
+    *SUM <- dst_port
+
+    inp_ptr <- INC <- inp_ptr
+    NIP <- #update_outputs_loop
+
+print_outputs:
+    STT <- PIP
+    ptr1 <- #str_output_title
+
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+
+    out_ptr <- #0
+    ptr1 <- #out_ids
+print_outputs_loop:
+    ALX <- out_ptr
+    ALY <- #15
+    UGT ? NIP <- #print_outputs_done
+
+    ;; Space
+    PRN <- #32
+
+    ;; Id string
+
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+
+    PRN <- *ptr1
+    ptr1 <- INC <- ptr1
+
+    ;; Colon
+    PRN <- #58
+
+    ;; Port
+    ALX <- #out_ports
+    ALY <- out_ptr
+    ALY <- *SUM
+    ALX <- #hex_chars
+
+    PRN <- *SUM
+
+    out_ptr <- INC <- out_ptr
+    NIP <- #print_outputs_loop
+print_outputs_done:
+    PRN <- #10
+    PRN <- #10
+    NIP <- STT
+
+resend_pairs:
+    STT <- PIP
+    out_ptr <- #0
+    ptr1 <- #src_dst_buf
+resend_pairs_loop:
+    ALX <- out_ptr
+    ALY <- #15
+    UGT ? NIP <- STT
+
+    BPI <- out_ptr
+
+    RES <- *ptr1
+    NIP <- #send_char
+    ptr1 <- INC <- ptr1
+
+    RES <- *ptr1
+    NIP <- #send_char
+    ptr1 <- INC <- ptr1
+
+    RES <- *ptr1
+    NIP <- #send_char
+    ptr1 <- INC <- ptr1
+
+    RES <- *ptr1
+    NIP <- #send_char
+    ptr1 <- INC <- ptr1
+
+    RES <- *ptr1
+    NIP <- #send_char
+    ptr1 <- INC <- ptr1
+
+    RES <- *ptr1
+    NIP <- #send_char
+    ptr1 <- INC <- ptr1
+
+    RES <- *ptr1
+    NIP <- #send_char
+    ptr1 <- INC <- ptr1
+
+    RES <- *ptr1
+    NIP <- #send_char
+    ptr1 <- INC <- ptr1
+
+    RES <- *ptr1
+    NIP <- #send_char
+    ptr1 <- INC <- ptr1
+
+    RES <- *ptr1
+    NIP <- #send_char
+    ptr1 <- INC <- ptr1
+
+    out_ptr <- INC <- out_ptr
+    NIP <- #resend_pairs_loop
+
+;; Assumes BPI is set.
+;; Will attempt to send value from RES
+;; will not return before send is successful
+send_char:
+    STT <- PIP
+send_char_loop:
+    BPW <- RES
+    BPO ? NIP <- #send_char_loop
+    NIP <- STT
+
+;; Same as send but reads. Puts read value in RES
+recv_char:
+    STT <- PIP
+recv_char_loop:
+    !BPS ? NIP <- #recv_char_loop
+    RES <- BPR
+    NIP <- STT
+
+ptr1:
+    0
+ptr2:
+    0
+ptr3:
+    0
+ptr4:
+    0
+inp_ptr:
+    0
+out_ptr:
+    0
+inp_ports:
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+inp_ids:
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0
+out_ports:
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+out_ids:
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0
+dum_ports:
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+dum_ids:
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0
+str_id:
+    0,0,0,0
+str_id_title:
+    "ID "
+hex_chars:
+    "0123456789ABCDEF"
+str_input_title:
+    "INPUT "
+str_output_title:
+    "OUTPUT"
+src_dst_buf:
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0
+src_port:
+    0
+dst_port:
+    0
+id_eq:
+    0
+id_neq:
+    0
+resend_cnt:
+    0

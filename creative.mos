@@ -1,0 +1,56 @@
+% STD RAS:0 RTC:1
+BLACK = 0
+WHITE = 12
+loop:
+    ALX <- x
+    ALY <- #256
+    EQU ? NIP <- #exit
+
+    ALX <- x
+    ALY <- y
+
+    DIX <- SUM
+    DIH <- #0
+
+    DIY <- #42
+
+    col <- UQO
+
+
+    FPX <- FSI <- FIF <- y
+    FPY <- FCO <- FIF <- x
+
+    DIX <- FSM
+    DIY <- #3
+
+    ALX <- URE
+    ALY <- #1
+    ALX <- DIF
+    ALY <- col
+
+    col <- SUM
+
+    RAI <- col
+
+    INC <- y
+    y <- INC
+    ALX <- y
+    ALY <- #256
+    EQU ? y <- #0
+    EQU ? INC <- x
+    EQU ? x <- INC
+
+    NIP <- #loop
+exit:
+    RAD <- #1
+    NIP <- #HLT
+
+    ;PRN <- *ptr
+    ;INC <- ptr
+    ;ptr <- INC
+    ;NIP <- #loop
+x: 0
+y: 0
+r: 0
+x_dif: 0
+col: 0

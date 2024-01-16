@@ -1,0 +1,61 @@
+% STD RAS:0
+BLACK = 0
+WHITE = 12
+setup:
+    !ICO ? NIP <- #exit
+    r <- IDA
+    MUX <- r
+    MUY <- r
+    r <- UPL
+    DBG <- r
+loop:
+    ALX <- x
+    ALY <- #256
+    EQU ? NIP <- #exit
+
+    ALX <- x
+    ALY <- #128
+
+    MUX <- DIF
+    MUY <- DIF
+    x_dif <- UPL
+
+    ALX <- y
+    MUX <- DIF
+    MUY <- DIF
+
+    ; ALX: dx^2, ALY: dy^2
+    ALX <- x_dif
+    ALY <- UPL
+
+    ; dx^2 + dy^2 <= r^2?
+    ALX <- SUM
+    ALY <- r
+
+    !SGT ? RAI <- #12
+    SGT ? RAI <- #0
+
+    INC <- y
+    y <- INC
+    ALX <- y
+    ALY <- #256
+    EQU ? y <- #0
+    EQU ? INC <- x
+    EQU ? x <- INC
+
+    NIP <- #loop
+exit:
+    RAX <- #0
+    RAY <- #0
+    RAW <- BLACK
+    RAD <- #1
+    NIP <- #HLT
+
+    ;PRN <- *ptr
+    ;INC <- ptr
+    ;ptr <- INC
+    ;NIP <- #loop
+x: 0
+y: 0
+r: 0
+x_dif: 0

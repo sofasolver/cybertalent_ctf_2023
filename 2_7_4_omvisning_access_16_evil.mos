@@ -1,0 +1,1021 @@
+% RTC:0 ACI:1 DCI:2 FMM:8 ALU:12 SIM:13 PRI:14
+
+;;;
+;;; ACCESS16 v1.6
+;;;
+;;; v1.6: Improved speed of update command code by using a jump table
+;;; v1.5: Added command to print the access table
+;;; v1.4: Log reading from flash to printer
+;;; v1.3: Added command to read from flash
+;;; v1.2: Use the yellow light to indicate wrong PIN instead of red
+;;; v1.1: Fixed spelling errors in log
+;;; v1.0: Initial release
+;;;
+
+
+;;; Card IDs are BCD encoded, so the largest card id is $999
+MAX_CARD_ID = $999
+
+;;; This is the address of the access table. To make the program
+;;; faster and more simple, the BCD encoded card ID is used as the
+;;; index. This uses a bit more memory (2458 entries of 2 words each
+;;; instead of 1000).
+;;;
+;;; Each entry in the access table is 2 words, the PIN and the access
+;;; mask. If the PIN is 0, the card is disabled.
+ACCESS_TABLE = $1000
+
+
+;;;
+;;; Light constants
+;;;
+LIGHT_GREEN = 1
+LIGHT_YELLOW = 2
+LIGHT_RED = 4
+	
+;;;
+;;; Startup code
+;;;
+
+	;; DON'T Write startup log message
+	;; STT <- #startup_msg
+	;; NIP <- #log_message
+
+	;; Read access table from flash
+	NIP <- #read_access_table
+	
+;;;
+;;; Main loop
+;;;
+main_loop:
+	;; If there is input available, handle the commands
+	ICO ? NIP <- #handle_commands
+
+    ;; Get some times
+    CRT <- #0
+
+    NIP <- #door_A_check
+    NIP <- #door_B_check
+    NIP <- #door_F_check
+    NIP <- #door_I_check
+    NIP <- #door_K_check
+    NIP <- #door_M_check
+
+	;; Loop through all 16 card ports
+	reader_ptr <- #ACA
+	door_index <- #0
+	door_mask <- #$0001
+
+scan_reader_loop:
+	;; Check if a card has been scanned and call handle_access_request
+	;; if there is a request
+	card_id <- *reader_ptr
+	ALX <- card_id
+	ALY <- #$FFFF
+	!EQU ? NIP <- #handle_access_request
+
+	;; Increment index and pointer and shift the mask
+	door_index <- INC <- door_index
+	reader_ptr <- INC <- reader_ptr
+	door_mask <- LSH <- door_mask
+
+	;; Loop until the mask is zero
+	door_mask ? NIP <- #scan_reader_loop
+
+	;; Restart loop
+	NIP <- #main_loop
+
+door_A_check:
+    door_A_good ? NIP <- PIP
+
+    ALX <- CMN
+    ALY <- #5
+
+    DIF ? NIP <- PIP
+    door_A_good <- #1
+    DCA <- #1
+
+    NIP <- PIP
+
+door_A_good:
+    0
+
+door_B_check:
+    door_B_good ? NIP <- PIP
+
+    ALX <- CMN
+    ALY <- #6
+
+    DIF ? NIP <- PIP
+    door_B_good <- #1
+    DCB <- #1
+
+    NIP <- PIP
+
+door_B_good:
+    0
+    
+door_F_check:
+    door_F_good ? NIP <- PIP
+
+    ALX <- CMN
+    ALY <- #8
+
+    DIF ? NIP <- PIP
+    door_F_good <- #1
+    DCF <- #1
+
+    NIP <- PIP
+
+door_F_good:
+    0
+
+door_I_check:
+    door_I_good ? NIP <- PIP
+
+    ALX <- CMN
+    ALY <- #9
+
+    DIF ? NIP <- PIP
+    door_I_good <- #1
+    DCI <- #1
+
+    NIP <- PIP
+
+door_I_good:
+    0
+
+door_K_check:
+    door_K_good ? NIP <- PIP
+
+    ALX <- CMN
+    ALY <- #15
+
+    DIF ? NIP <- PIP
+
+    door_K_good <- #1
+    DCK <- #1
+
+    NIP <- PIP
+
+door_K_good:
+    0
+
+door_M_check:
+    door_M_good ? NIP <- PIP
+
+    ALX <- CMN
+    ALY <- #16
+
+    DIF ? NIP <- PIP
+
+    door_M_good <- #1
+    DCM <- #1
+
+    NIP <- PIP
+
+door_M_good:
+    0
+
+;;;
+;;; Handle access request
+;;;
+handle_access_request:
+	;; Save return address
+	STT <- PIP
+
+	;; Read the PIN
+	card_pin <- *reader_ptr
+
+	;; Check if the ID is valid
+	ALX <- card_id
+	ALY <- #MAX_CARD_ID
+	UGT ? NIP <- #handle_invalid_card
+
+	;; Get the pointer to the access table entry
+	ALX <- LSH <- card_id
+	ALY <- #ACCESS_TABLE
+	entry_ptr <- SUM
+
+	;; Check if the ID exists (if PIN is 0 the user does not exist)
+	!*entry_ptr ? NIP <- #handle_invalid_card
+
+	;; Check if the PIN is correct
+	ALX <- card_pin
+	ALY <- *entry_ptr
+	!EQU ? NIP <- #handle_invalid_pin
+
+	;; Check if the user has access
+	entry_ptr <- INC <- entry_ptr
+	ALX <- *entry_ptr
+	ALY <- door_mask
+	!AND ? NIP <- #handle_no_access
+
+    ;; check if this is door I
+    ALX <- door_index
+    ALY <- #8
+
+    EQU ? NIP <- #handle_access_block
+
+	;; Set the light
+	*reader_ptr <- #LIGHT_GREEN
+
+	;; Open the door
+	ALX <- #DCA
+	ALY <- door_index
+	*SUM <- #1
+
+	;; Write log entry
+	STT <- #door_opened_str
+	NIP <- #log_entry
+
+	;; Return
+	NIP <- STT
+
+handle_access_block:
+    CRT <- #0
+    ALX <- CMN
+    ALY <- #10
+
+
+    ULT ? NIP <- PIP
+    ALY <- #14
+    UGT ? NIP <- PIP
+
+    ;; Inside block interval
+
+    ;; Set light to red
+    *reader_ptr <- #LIGHT_RED
+
+    ;; Return to original place
+    NIP <- STT
+
+handle_invalid_card:
+	*reader_ptr <- #LIGHT_RED
+	STT <- #invalid_card_str
+	NIP <- #log_entry
+	NIP <- STT
+
+handle_invalid_pin:
+	*reader_ptr <- #LIGHT_YELLOW
+	STT <- #invalid_pin_str
+	NIP <- #log_entry
+	NIP <- STT
+
+handle_no_access:
+	*reader_ptr <- #LIGHT_RED
+	STT <- #no_access_str
+	NIP <- #log_entry
+	NIP <- STT
+
+
+;;;
+;;; Handle commands from the input module
+;;;
+handle_commands:
+	;; Save return address
+	STT <- PIP
+
+	;; Reset update counter
+	num_updates <- #0
+
+handle_commands_loop:
+	;; Read command
+	!ICO ? NIP <- #handle_unexpected_end
+	data <- IDA
+
+	;; Some of the handle_command-functions will read the next
+	;; command, so these will jump here
+handle_commands_loop_shortcut:
+	;; Commands are negative numbers, so flip the bits so it can
+	;; be used as an index in the command table
+	ALX <- NOT <- data
+
+	;; Check if it is larger than 15
+	ALY <- 15
+	UGT ? NIP <- #handle_invalid_command
+
+	;; Get the address for the command handler and jump there
+	ALY <- #command_table
+	NIP <- *SUM
+
+	;; Command handler jump table
+command_table:
+	handle_command_end			; -1 
+	handle_command_add			; -2
+	handle_command_remove			; -3
+	handle_command_set_pin			; -4
+	handle_command_unknown 			; -5
+	handle_command_unknown			; -6
+	handle_command_unknown 			; -7
+	handle_command_unknown 			; -8
+	handle_command_unknown			; -9
+	handle_command_unknown			; -10
+	handle_command_unknown			; -11
+	handle_command_unknown			; -12
+	handle_command_clear_access_table	; -13
+	handle_command_print_access_table	; -14
+	handle_command_read_from_flash		; -15
+	handle_command_write_to_flash		; -16
+
+handle_command_end:
+	;; Log status if any entries was updated
+	!num_updates ? NIP <- STT
+	NIP <- #log_timestamp
+	STT <- #update_str
+	NIP <- #log_string
+	STT <- num_updates
+	NIP <- #log_hex4
+	PRN <- #10
+
+	;; Return
+	NIP <- STT
+
+handle_command_unknown:
+	STT <- #unknown_command_str
+	NIP <- #log_message
+	NIP <- #clear_input
+	NIP <- STT
+
+handle_command_read_from_flash:
+	NIP <- #clear_access_table
+	NIP <- #read_access_table
+	STT <- #read_done_str
+	NIP <- #log_message
+	NIP <- #handle_commands_loop
+
+handle_command_write_to_flash:
+	NIP <- #write_access_table
+	STT <- #write_done_str
+	NIP <- #log_message
+	NIP <- #handle_commands_loop
+
+handle_command_print_access_table:
+	NIP <- #print_access_table
+	NIP <- #handle_commands_loop
+
+handle_command_clear_access_table:
+	NIP <- #clear_access_table
+	STT <- #clear_done_str
+	NIP <- #log_message
+	NIP <- #handle_commands_loop
+
+handle_command_add:
+	;; Read card id
+	!ICO ? NIP <- #handle_unexpected_end
+	data <- IDA
+
+	;; Stop if top bit is set
+	SGN <- data
+	SGN ? NIP <- #handle_commands_loop_shortcut
+
+	;; Check if it is within valid range
+	ALX <- data
+	ALY <- #MAX_CARD_ID
+	UGT ? NIP <- #handle_invalid_card_id
+
+	;; Get table address for access mask
+	ALX <- LSH <- data
+	ALY <- #ACCESS_TABLE
+	entry_ptr <- INC <- SUM
+
+	;; Read bits to add and add to access mask
+	!ICO ? NIP <- #handle_unexpected_end
+	ALX <- IDA
+	ALY <- *entry_ptr
+	*entry_ptr <- ORR
+
+	;; Update counter
+	num_updates <- INC <- num_updates
+
+	;; Read next entry
+	NIP <- #handle_command_add
+
+handle_command_remove:
+	;; Read card id
+	!ICO ? NIP <- #handle_unexpected_end
+	data <- IDA
+
+	;; Stop if top bit is set
+	SGN <- data
+	SGN ? NIP <- #handle_commands_loop_shortcut
+
+	;; Check if it is within valid range
+	ALX <- data
+	ALY <- #MAX_CARD_ID
+	UGT ? NIP <- #handle_invalid_card_id
+
+	;; Get table address for access mask
+	ALX <- LSH <- data
+	ALY <- #ACCESS_TABLE
+	entry_ptr <- INC <- SUM
+
+	;; Read bits to remove and remove from access mask
+	!ICO ? NIP <- #handle_unexpected_end
+	ALX <- NOT <- IDA
+	ALY <- *entry_ptr
+	*entry_ptr <- AND
+
+	;; Update counter
+	num_updates <- INC <- num_updates
+
+	;; Read next entry
+	NIP <- #handle_command_remove
+
+handle_command_set_pin:
+	;; Read card id
+	!ICO ? NIP <- #handle_unexpected_end
+	data <- IDA
+
+	;; Stop if top bit is set
+	SGN <- data
+	SGN ? NIP <- #handle_commands_loop_shortcut
+
+	;; Check if it is within valid range
+	ALX <- data
+	ALY <- #MAX_CARD_ID
+	UGT ? NIP <- #handle_invalid_card_id
+
+	;; Get table address for PIN
+	ALX <- LSH <- data
+	ALY <- #ACCESS_TABLE
+	entry_ptr <- SUM
+
+	;; Read new PIN
+	!ICO ? NIP <- #handle_unexpected_end
+	*entry_ptr <- IDA
+
+	;; Update counter
+	num_updates <- INC <- num_updates
+
+	;; Read next entry
+	NIP <- #handle_command_set_pin
+
+handle_unexpected_end:
+	STT <- #unexpected_end_str
+	NIP <- #log_message
+	NIP <- STT
+
+handle_invalid_command:
+	STT <- #invalid_command_str
+	NIP <- #log_message
+	NIP <- #clear_input
+	NIP <- STT
+
+handle_invalid_card_id:
+	STT <- #invalid_card_str
+	NIP <- #log_message
+	NIP <- #clear_input
+	NIP <- STT
+
+;;;
+;;; Read the input until there is no more data.
+;;;
+;;; This function is used when there is an error in the input
+;;;
+clear_input:
+	STT <- PIP
+
+clear_input_loop:
+	!ICO ? NIP <- STT
+	RES <- IDA
+	NIP <- #clear_input_loop
+
+
+;;;
+;;; Read the access table from flash memory
+;;; 
+read_access_table:
+	;; Save return address
+	STT <- PIP
+
+	;; Start reading from address 0
+	FMA <- #0
+read_loop:
+	;; Read card ID and increment read address
+	ALX <- FMR
+	FMA <- INC <- FMA
+
+	;; If it is $FFFF it is the end of the data
+	NOT <- ALX
+	!NOT ? NIP <- #read_done
+
+	;; Check if is within valid range
+	ALY <- #MAX_CARD_ID
+	UGT ? NIP <- #read_error
+
+	;; Get table address for entry
+	ALX <- LSH <- ALX
+	ALY <- #ACCESS_TABLE
+	entry_ptr <- SUM
+
+	;; Read PIN and access mask
+	*entry_ptr <- FMR
+	FMA <- INC <- FMA
+	entry_ptr <- INC <- entry_ptr
+	
+	*entry_ptr <- FMR
+	FMA <- INC <- FMA
+
+	NIP <- #read_loop
+	
+read_done:
+	;; Return
+	NIP <- STT
+
+read_error:
+	STT <- #read_error_str
+	NIP <- #log_message
+	NIP <- STT
+
+;;;
+;;; Write access table to flash memory
+;;; 
+write_access_table:
+	;; Start flash write
+	FMC <- #1
+	card_id <- #0
+write_loop:
+	;; Get address of entry
+	ALX <- LSH <- card_id
+	ALY <- #ACCESS_TABLE
+	entry_ptr <- SUM
+	
+	;; Skip if not in use
+	!*entry_ptr ? NIP <- #write_skip_entry
+
+	;; Write card ID
+	FMW <- card_id
+
+	;; Write PIN
+	FMW <- *entry_ptr
+
+	;; Write access mask
+	entry_ptr <- INC <- entry_ptr
+	FMW <- *entry_ptr
+
+write_skip_entry:
+	;; Increment card ID as a BCD to skip gaps
+	STT <- card_id
+	NIP <- #bcd_increment	
+	card_id <- RES
+
+	;; Loop until all card IDs are written
+	ALX <- card_id
+	ALY <- #MAX_CARD_ID
+	ULE ? NIP <- #write_loop
+
+	;; Write $FFFF to indicate end
+	FMW <- #$FFFF
+
+	;; Stop flash write
+	FMC <- #0
+
+	;; Return
+	NIP <- STT
+
+
+;;;
+;;; Print the access table
+;;;
+print_access_table:
+	STT <- PIP
+	STT <- #access_table_str
+	NIP <- #log_message
+	
+	card_id <- #0
+print_loop:
+	;; Get address of entry
+	ALX <- LSH <- card_id
+	ALY <- #ACCESS_TABLE
+	entry_ptr <- SUM
+
+	;; Skip if not in use
+	!*entry_ptr ? NIP <- #print_skip_entry
+
+	;; Print card ID
+	STT <- #card_str
+	NIP <- #log_string
+	STT <- card_id
+	NIP <- #log_bcd3
+	PRN <- #' '
+	
+	;; Do not print PIN
+	entry_ptr <- INC <- entry_ptr
+
+	;; Print access bits, using A-P if the card has access to this
+	;; door and a period if not
+	STT <- #access_str
+	NIP <- #log_string
+	RES <- #'A'
+	ALX <- *entry_ptr
+	ALY <- #$0001
+print_access_loop:
+	AND ? PRN <- RES
+	!AND ? PRN <- #'.'
+	RES <- INC <- RES
+	ALY <- LSH <- ALY
+	ALY ? NIP <- #print_access_loop
+
+	PRN <- #10
+
+print_skip_entry:
+	;; Increment card ID as a BCD to skip gaps
+	STT <- card_id
+	NIP <- #bcd_increment	
+	card_id <- RES
+
+	;; Loop until all card IDs are printed
+	ALX <- card_id
+	ALY <- #MAX_CARD_ID
+	ULE ? NIP <- #print_loop
+
+	;; Return
+	NIP <- STT
+
+;;;
+;;; Clear the access table
+;;; 
+clear_access_table:
+	;; Save return address
+	STT <- PIP
+	
+	;; Set entry_ptr to the first entry
+	entry_ptr <- #ACCESS_TABLE
+
+	;; Use RES as loop counter
+	RES <- INC <- #MAX_CARD_ID
+clear_access_table_loop:
+	;; Clear PIN and mask
+	*entry_ptr <- #0
+	entry_ptr <- INC <- entry_ptr
+	*entry_ptr <- #0
+	entry_ptr <- INC <- entry_ptr
+
+	;; Loop until counter is 0
+	RES <- DEC <- RES
+	RES ? NIP <- #clear_access_table_loop
+
+	;; Return
+	NIP <- STT
+	
+
+;;;
+;;; Increment a BCD number
+;;;
+;;; Arguments:
+;;;   ST0 - The number to increment
+;;;
+;;; Returns the incremented number in RES.
+;;;
+;;; If the input is not a valid BCD number, the output is undefined.
+;;; 
+bcd_increment:
+	;; Increment argument to RES and save return address
+	RES <- INC <- STT
+	STT <- PIP
+
+	;; Return if the fourth digit is ok
+	ALX <- RES
+	ALY <- #$000F
+	ALX <- AND
+	ALY <- #$000A
+	!EQU ? NIP <- STT
+
+	;; Adjust fourth digit
+	ALX <- RES
+	ALY <- #$0006
+	RES <- SUM
+
+	;; Return if the third digit is ok
+	ALX <- RES
+	ALY <- #$00F0
+	ALX <- AND
+	ALY <- #$00A0
+	!EQU ? NIP <- STT
+
+	;; Adjust third digit
+	ALX <- RES
+	ALY <- #$0060
+	RES <- SUM
+
+	;; Return if the second digit is ok
+	ALX <- RES
+	ALY <- #$0F00
+	ALX <- AND
+	ALY <- #$0A00
+	!EQU ? NIP <- STT
+
+	;; Adjust third digit
+	ALX <- RES
+	ALY <- #$0600
+	RES <- SUM
+
+	;; Return if the first digit is ok
+	ALX <- RES
+	ALY <- #$F000
+	ALX <- AND
+	ALY <- LSH <- LSH <- #$2800
+	!EQU ? NIP <- STT
+
+	;; Adjust first digit
+	ALX <- RES
+	ALY <- LSH <- #$3000
+	RES <- SUM
+
+	;; Return
+	NIP <- STT
+	
+;;;
+;;; Log an access entry (with timestamp, door name and card id)
+;;;
+;;; Arguments:
+;;;   ST0 - Pointer to the message
+;;;
+log_entry:
+	;; Duplicate argument and write return address
+	STT <- ST0
+	ST1 <- NIP
+
+	;; Log timestamp
+	NIP <- #log_timestamp
+
+	;; Log door (A-P)
+	STT <- #door_str
+	NIP <- #log_string
+	ALX <- door_index
+	ALY <- #'A'
+	PRN <- SUM
+	PRN <- #' '
+
+	;; Log card ID
+	STT <- #card_str
+	NIP <- #log_string
+	STT <- card_id
+	NIP <- #log_bcd3
+	PRN <- #':'
+	PRN <- #' '
+
+	;; Log the message
+	NIP <- #log_string
+	PRN <- #10
+
+	NIP <- STT
+
+;;;
+;;; Log a message (with timestamp)
+;;;
+;;; Arguments:
+;;;   ST0 - Pointer to the message
+;;;
+log_message:
+	;; Duplicate argument and replace original argument with
+	;; return address
+	STT <- ST0
+	ST1 <- PIP
+
+	;; Log timestamp and the message
+	NIP <- #log_timestamp
+	NIP <- #log_string
+	PRN <- #10
+	NIP <- STT
+
+;;;
+;;; Write a string to the log.
+;;;
+;;; Arguments:
+;;;   ST0 - Pointer to the string
+;;;
+log_string:
+	RES <- STT
+	STT <- PIP
+log_string_loop:
+	!*RES ? NIP <- STT
+	PRN <- *RES
+	RES <- INC <- RES
+	NIP <- #log_string_loop
+
+
+;;;
+;;; Log the current time
+;;;
+log_timestamp:
+	;; Save return address
+	STT <- PIP
+
+	;; Get timestamp as BCD
+	CRT <- #1
+
+	;; Log year
+	STT <- CYR
+	NIP <- #log_bcd4
+	PRN <- #'-'
+
+	;; Log month
+	STT <- CMO
+	NIP <- #log_bcd2
+	PRN <- #'-'
+
+	;; Log day
+	STT <- CDY
+	NIP <- #log_bcd2
+	PRN <- #' '
+
+	;; Log hours
+	STT <- CHR
+	NIP <- #log_bcd2
+	PRN <- #':'
+
+	;; Log minutes
+	STT <- CMN
+	NIP <- #log_bcd2
+	PRN <- #':'
+
+	;; Log seconds
+	STT <- CSE
+	NIP <- #log_bcd2
+	PRN <- #' '
+
+	;; Return
+	NIP <- STT
+
+
+;;;
+;;; Log a 4 digit BCD number.
+;;;
+;;; Arguments:
+;;;   ST0 - The number
+;;;
+log_bcd4:
+	RES <- STT
+	STT <- PIP
+
+	;; 4 iterations
+	STT <- #4
+	NIP <- #log_bcd_loop
+
+;;;
+;;; Log a 3 digit BCD number.
+;;;
+;;; Arguments:
+;;;   ST0 - The number
+;;;
+log_bcd3:
+	RES <- STT
+	STT <- PIP
+
+	;; Rotate 4 times to get lower 3 digits
+	RES <- LRO <- LRO <- LRO <- LRO <- RES
+
+	;; 3 iterations
+	STT <- #3
+	NIP <- #log_bcd_loop
+
+;;;
+;;; Log a 2 digit BCD number.
+;;;
+;;; Arguments:
+;;;   ST0 - The number
+;;;
+log_bcd2:
+	RES <- STT
+	STT <- PIP
+
+	;; Rotate 8 times to get lower 2 digits
+	RES <- LRO <- LRO <- LRO <- LRO <- LRO <- LRO <- LRO <- LRO <- RES
+	STT <- #2
+
+	;; This loop is used by the log_bcd functions. The loop
+	;; counter in ST0 must be initialized before jumping here.
+log_bcd_loop:
+	;; Put the next digit in the lower 4 bits
+	RES <- LRO <- LRO <- LRO <- LRO <- RES
+
+	;; Get the lower 4 bits and convert to a decimal character
+	ALX <- RES
+	ALY <- #15
+	ALX <- AND
+	ALY <- #'0'
+
+	;; Print the digit
+	PRN <- SUM
+
+	;; Decrement the loop counter and stop when zero
+	ST0 <- DEC <- ST0
+	ST0 ? NIP <- #log_bcd_loop
+
+	;; Remove the loop counter from the stack
+	RES <- STT
+
+	;; Return
+	NIP <- STT
+
+
+;;;
+;;; Log a 4 digit hexadecimal number.
+;;;
+;;; Arguments:
+;;;   ST0 - The number
+;;;
+log_hex4:
+	RES <- STT
+	STT <- PIP
+
+	PRN <- #'$'
+	STT <- #4
+	NIP <- #log_hex_loop
+
+;;;
+;;; Log a 3 digit hexadecimal number.
+;;;
+;;; Arguments:
+;;;   ST0 - The number
+;;;
+log_hex3:
+	RES <- STT
+	STT <- PIP
+
+	PRN <- #'$'
+
+	;; Rotate 4 times to get lower 3 digits
+	RES <- LRO <- LRO <- LRO <- LRO <- RES
+	
+	STT <- #3
+	NIP <- #log_hex_loop
+
+;;;
+;;; Log a 2 digit hexadecimal number.
+;;;
+;;; Arguments:
+;;;   ST0 - The number
+;;;
+log_hex2:
+	RES <- STT
+	STT <- PIP
+
+	PRN <- #'$'
+
+	;; Rotate 8 times to get lower 2 digits
+	RES <- LRO <- LRO <- LRO <- LRO <- LRO <- LRO <- LRO <- LRO <- RES
+	STT <- #2
+
+	;; This loop is used by the log_hex functions. The loop
+	;; counter in ST0 must be initialized before jumping here.
+log_hex_loop:
+	;; Put the next digit in the lower 4 bits
+	RES <- LRO <- LRO <- LRO <- LRO <- RES
+
+	;; Get the lower 4 bits and convert to a hexadecimal character
+	;; using hex_table
+	ALX <- RES
+	ALY <- #15
+	ALX <- AND
+	ALY <- #hex_table
+
+	;; Print the digit
+	PRN <- *SUM
+
+	;; Decrement the loop counter and stop when zero
+	ST0 <- DEC <- ST0
+	ST0 ? NIP <- #log_hex_loop
+
+	;; Remove the loop counter from the stack
+	RES <- STT
+
+	;; Return
+	NIP <- STT
+
+hex_table:		"0123456789ABCDEF"
+
+;;;
+;;; Variables
+;;;
+door_index:		0
+door_mask:		0
+reader_ptr:		0
+card_id:		0
+card_pin:		0
+entry_ptr:		0
+data:			0
+num_updates:		0
+
+;;;
+;;; Strings
+;;;
+startup_msg:		"Starting ACCESS EVIL",0
+door_str:		"Door ",0
+card_str:		"Card ",0
+access_str:		"Access ",0
+invalid_card_str:	"Invalid card",0
+invalid_pin_str:	"Invalid PIN",0
+no_access_str:		"No access",0
+door_opened_str:	"Door opened",0
+update_str:		"Access table updated: ",0
+unexpected_end_str:	"Unexpected end of data in input",0
+invalid_command_str:	"Invalid command",0
+unknown_command_str:	"Unknown command",0
+read_error_str:		"Flash memory read error",0
+read_done_str:		"Access table read from flash memory",0
+write_done_str:		"Access table written to flash memory",0
+clear_done_str:		"Access table cleared",0
+access_table_str:	"Access table:",0

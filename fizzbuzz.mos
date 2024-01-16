@@ -1,0 +1,268 @@
+% MIN
+loop:
+    mod35_tmp <- #0
+
+    NIP <- #mod3
+
+    !mod3_res ? ptr <- #fizz
+    !mod3_res ? NIP <- #print4
+
+    mod3_res ? INC <- mod35_tmp
+    mod3_res ? mod35_tmp <- INC
+
+    NIP <- #mod5
+
+    !mod5_res ? ptr <- #buzz
+    !mod5_res ? NIP <- #print4
+
+    mod5_res ? INC <- mod35_tmp
+    mod5_res ? mod35_tmp <- INC
+
+    DEC <- mod35_tmp
+    mod35_tmp <- DEC
+    DEC <- mod35_tmp
+    mod35_tmp <- DEC
+
+    !mod35_tmp ? NIP <- #print_num
+
+    PRN <- #10
+
+    ; Check if done
+    cnt10_4 ? NIP <- #HLT
+
+    NIP <- #inc_cnt
+
+    NIP <- #loop
+
+; Output: mod3_res (0, 1 or 2)
+mod3:
+    mod3_ret <- PIP
+    mod3_res <- mod3_save
+
+    INC <- mod3_res
+    mod3_res <- INC
+
+    cmp_a <- mod3_res
+    cmp_b <- #3
+    NIP <- #equ
+
+    cmp_e ? mod3_res <- #0
+
+    mod3_save <- mod3_res
+
+    NIP <- mod3_ret
+
+; Input: mod5_op
+; Output: mod5_res (0, 1, 2, 3, 4)
+mod5:
+    mod5_ret <- PIP
+    mod5_res <- mod5_save
+
+    INC <- mod5_res
+    mod5_res <- INC
+
+    cmp_a <- mod5_res
+    cmp_b <- #5
+    NIP <- #equ
+
+    cmp_e ? mod5_res <- #0
+
+    mod5_save <- mod5_res
+
+    NIP <- mod5_ret
+
+
+print4:
+    PRN <- *ptr
+    INC <- ptr
+    ptr <- INC
+    PRN <- *ptr
+    INC <- ptr
+    ptr <- INC
+    PRN <- *ptr
+    INC <- ptr
+    ptr <- INC
+    PRN <- *ptr
+    NIP <- PIP
+
+equ:
+    cmp_e <- #0
+    cmp_ret <- PIP
+equ_loop:
+    cmp_tmp <- #0
+    !cmp_a ? INC <- cmp_tmp
+    !cmp_a ? cmp_tmp <- INC
+    !cmp_b ? INC <- cmp_tmp
+    !cmp_b ? cmp_tmp <- INC
+
+    DEC <- cmp_tmp
+    cmp_tmp <- DEC
+
+    !cmp_tmp ? cmp_e <- #0
+    !cmp_tmp ? NIP <- cmp_ret
+
+    DEC <- cmp_tmp
+    cmp_tmp <- DEC
+
+    !cmp_tmp ? cmp_e <- #1
+    !cmp_tmp ? NIP <- cmp_ret
+
+    DEC <- cmp_a
+    cmp_a <- DEC
+
+    DEC <- cmp_b
+    cmp_b <- DEC
+
+    NIP <- #equ_loop
+
+    
+; Input: pn_op
+; Prints the number in decimal !
+print_num:
+    pn_ret <- PIP
+
+    do_pr <- #0
+
+    cnt10_4 ? do_pr <- #1
+    do_pr ? inc_op <- cnt10_4
+    do_pr ? NIP <- #inc48
+    do_pr ? PRN <- inc_op
+
+    cnt10_3 ? do_pr <- #1
+    do_pr ? inc_op <- cnt10_3
+    do_pr ? NIP <- #inc48
+    do_pr ? PRN <- inc_op
+
+    cnt10_2 ? do_pr <- #1
+    do_pr ? inc_op <- cnt10_2
+    do_pr ? NIP <- #inc48
+    do_pr ? PRN <- inc_op
+
+    cnt10_1 ? do_pr <- #1
+    do_pr ? inc_op <- cnt10_1
+    do_pr ? NIP <- #inc48
+    do_pr ? PRN <- inc_op
+
+    cnt10_0 ? do_pr <- #1
+    do_pr ? inc_op <- cnt10_0
+    do_pr ? NIP <- #inc48
+    do_pr ? PRN <- inc_op
+
+    NIP <- pn_ret
+
+inc_cnt:
+    inc_cnt_ret <- PIP
+
+    INC <- cnt10_0
+    cnt10_0 <- INC
+
+    cmp_a <- cnt10_0
+    cmp_b <- #10
+    NIP <- #equ
+
+    !cmp_e ? NIP <- inc_cnt_ret
+
+    cnt10_0 <- #0
+    INC <- cnt10_1
+    cnt10_1 <- INC
+
+    cmp_a <- cnt10_1
+    cmp_b <- #10
+    NIP <- #equ
+
+    !cmp_e ? NIP <- inc_cnt_ret
+
+    cnt10_1 <- #0
+    INC <- cnt10_2
+    cnt10_2 <- INC
+
+    cmp_a <- cnt10_2
+    cmp_b <- #10
+
+    NIP <- #equ
+
+    !cmp_e ? NIP <- inc_cnt_ret
+
+    cnt10_2 <- #0
+    INC <- cnt10_3
+    cnt10_3 <- INC
+
+    cmp_a <- cnt10_3
+    cmp_b <- #10
+
+    NIP <- #equ
+
+    !cmp_e ? NIP <- inc_cnt_ret
+
+    cnt10_3 <- #0
+    INC <- cnt10_4
+    cnt10_4 <- INC
+
+    NIP <- inc_cnt_ret
+
+
+inc4:
+    INC <- inc_op
+    inc_op <- INC
+    INC <- inc_op
+    inc_op <- INC
+    INC <- inc_op
+    inc_op <- INC
+    INC <- inc_op
+    inc_op <- INC
+    NIP <- PIP
+
+inc16:
+    inc16_ret <- PIP
+
+    NIP <- #inc4
+    NIP <- #inc4
+    NIP <- #inc4
+    NIP <- #inc4
+
+    NIP <- inc16_ret
+
+inc48:
+    inc48_ret <- PIP
+
+    NIP <- #inc16
+    NIP <- #inc16
+    NIP <- #inc16
+
+    NIP <- inc48_ret
+
+
+inc_op: 0
+inc16_ret: 0
+inc48_ret: 0
+
+pn_ret: 0
+
+cnt10_0: 1
+cnt10_1: 0
+cnt10_2: 0
+cnt10_3: 0
+cnt10_4: 0
+do_pr: 0
+
+fizz: "Fizz", 10, 0
+buzz: "Buzz", 10, 0
+ptr: fizz
+cnt: 1
+cmp_a: 0
+cmp_b: 0
+cmp_tmp: 0
+cmp_e: 0
+cmp_ret: 0
+
+mod3_res: 0
+mod3_save: 0
+mod3_ret: 0
+
+mod5_res: 0
+mod5_save: 0
+mod5_ret: 0
+
+mod35_tmp: 0
+
+inc_cnt_ret: 0

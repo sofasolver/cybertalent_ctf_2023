@@ -1,0 +1,128 @@
+% STD
+NEWLINE = 10
+SPACE = 32
+loop:
+    !ICO ? NIP <- #exit
+    
+    lc ? NIP <- #breaknxt
+
+    num <- IDA
+
+    NIP <- #hexnum
+
+    lc <- INC <- lc
+
+
+    NIP <- #loop
+
+exit:
+    lc ? PRN <- #NEWLINE
+    NIP <- #HLT
+
+hexnum:
+    DIX <- num
+    DIY <- #16
+
+    num <- UQO
+    chr <- URE
+
+    ALX <- chr
+    ALY <- #48
+    chr <- SUM
+
+    ALX <- chr
+    ALY <- #58
+    inc <- ULT
+
+    !inc ? ALX <- chr
+    !inc ? ALY <- #7
+    !inc ? chr <- SUM
+
+    STT <- chr
+
+    DIX <- num
+    DIY <- #16
+
+    num <- UQO
+    chr <- URE
+
+    ALX <- chr
+    ALY <- #48
+    chr <- SUM
+
+    ALX <- chr
+    ALY <- #58
+    inc <- ULT
+
+    !inc ? ALX <- chr
+    !inc ? ALY <- #7
+    !inc ? chr <- SUM
+
+    STT <- chr
+
+
+    DIX <- num
+    DIY <- #16
+
+    num <- UQO
+    chr <- URE
+
+    ALX <- chr
+    ALY <- #48
+    chr <- SUM
+
+    ALX <- chr
+    ALY <- #58
+    inc <- ULT
+
+    !inc ? ALX <- chr
+    !inc ? ALY <- #7
+    !inc ? chr <- SUM
+
+    STT <- chr
+
+    DIX <- num
+    DIY <- #16
+
+    num <- UQO
+    chr <- URE
+
+    ALX <- chr
+    ALY <- #48
+    chr <- SUM
+
+    ALX <- chr
+    ALY <- #58
+    inc <- ULT
+
+    !inc ? ALX <- chr
+    !inc ? ALY <- #7
+    !inc ? chr <- SUM
+
+    STT <- chr
+	
+    PRN <- STT
+    PRN <- STT
+    PRN <- STT
+    PRN <- STT
+
+    NIP <- PIP
+
+breaknxt:
+    ALX <- lc
+    ALY <- #16
+
+    ; 16 words means new line
+    !DIF ? PRN <- #NEWLINE
+    !DIF ? lc <- #0
+    !DIF ? NIP <- PIP
+
+    ; Otherwise, space
+    PRN <- #SPACE
+    NIP <- PIP
+
+dp: 0
+num: 0
+lc: 0
+chr: 0
+inc: 0
